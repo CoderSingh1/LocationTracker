@@ -1,5 +1,6 @@
 package com.satnamsinghmaggo.locationtracker
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,6 +19,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -46,15 +48,32 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun LocationTrackerScrollScreen(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     val backgroundColor = Color(0xFF4C62E7)
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
 
+    var isTracking by remember {
+        mutableStateOf(
+            context.getSharedPreferences("prefs", Context.MODE_PRIVATE)
+                .getBoolean("isTracking", false)
+        )
+    }
+
+    fun saveTrackingState(isTracking: Boolean) {
+        context.getSharedPreferences("prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("isTracking", isTracking)
+            .apply()
+    }
 
     val userName = "Satnam Singh Maggo"
     val latitude = "30.7333"
     val longitude = "76.7794"
 
+    LaunchedEffect(Unit) {
+        if (isTracking) scrollState.animateScrollTo(scrollState.maxValue)
+    }
 
     Column(
         modifier = modifier
@@ -86,7 +105,6 @@ fun LocationTrackerScrollScreen(modifier: Modifier = Modifier) {
             ) {
                 Spacer(modifier = Modifier.height(40.dp))
 
-                // Lottie Animation
                 val composition by rememberLottieComposition(
                     LottieCompositionSpec.RawRes(R.raw.location_animation)
                 )
@@ -137,8 +155,11 @@ fun LocationTrackerScrollScreen(modifier: Modifier = Modifier) {
 
                 Button(
                     onClick = {
+                        isTracking = !isTracking
+                        saveTrackingState(isTracking)
                         coroutineScope.launch {
-                            scrollState.animateScrollTo(scrollState.maxValue)
+                            if (isTracking) scrollState.animateScrollTo(scrollState.maxValue)
+                            else scrollState.animateScrollTo(0)
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White),
@@ -148,7 +169,7 @@ fun LocationTrackerScrollScreen(modifier: Modifier = Modifier) {
                         .height(56.dp)
                 ) {
                     Text(
-                        text = "Start Location",
+                        text = if (isTracking) "Stop Tracking" else "Start Tracking",
                         color = backgroundColor,
                         fontWeight = FontWeight.Bold
                     )
@@ -166,31 +187,55 @@ fun LocationTrackerScrollScreen(modifier: Modifier = Modifier) {
                 .background(backgroundColor),
             contentAlignment = Alignment.Center
         ) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .padding(24.dp)
-                    .fillMaxWidth()
-                    .height(180.dp),
-                elevation = CardDefaults.cardElevation(8.dp)
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(
+                Card(
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.Center
+                        .padding(24.dp)
+                        .fillMaxWidth()
+                        .height(180.dp),
+                    elevation = CardDefaults.cardElevation(8.dp)
                 ) {
-                    Text(text = "User: $userName", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = "Latitude: $latitude", fontSize = 16.sp)
-                    Text(text = "Longitude: $longitude", fontSize = 16.sp)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(text = "User: $userName", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = "Latitude: $latitude", fontSize = 16.sp, color = Color.White)
+                        Text(text = "Longitude: $longitude", fontSize = 16.sp, color = Color.White)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = {
+                        isTracking = false
+                        saveTrackingState(false)
+                        coroutineScope.launch {
+                            scrollState.animateScrollTo(0)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .height(56.dp)
+                ) {
+                    Text(text = "Stop Tracking", color = backgroundColor, fontWeight = FontWeight.Bold)
                 }
             }
         }
     }
 }
-
-
 
 @Preview(showBackground = true)
 @Composable
