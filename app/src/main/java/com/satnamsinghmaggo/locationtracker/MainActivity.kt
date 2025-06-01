@@ -55,6 +55,7 @@ fun LocationTrackerScrollScreen(modifier: Modifier = Modifier) {
     val latitude = "30.7333"
     val longitude = "76.7794"
 
+
     Column(
         modifier = modifier
             .fillMaxSize()
