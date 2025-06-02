@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.play.services.location)
+    implementation(libs.androidx.navigation.compose)
 
     // Accompanist Permissions
     implementation(libs.accompanist.permissions)
