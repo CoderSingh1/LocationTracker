@@ -9,6 +9,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -16,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
@@ -179,64 +181,113 @@ fun LocationTrackerScrollScreen(modifier: Modifier = Modifier) {
             }
         }
 
-        // 🔹 Screen 2 - Coordinates Card
+// 🔹 Screen 2 - Profile, Animation, Coordinates Card
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(700.dp)
-                .background(backgroundColor),
-            contentAlignment = Alignment.Center
         ) {
+            Image(
+                painter = painterResource(id = R.drawable.map_background),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+
             Column(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Box(
+                    modifier = Modifier
+                        .size(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Lottie Animation
+                    val composition by rememberLottieComposition(
+                        LottieCompositionSpec.Asset("location_map_animation.json")
+                    )
+                    val progress by animateLottieCompositionAsState(
+                        composition,
+                        iterations = LottieConstants.IterateForever
+                    )
+
+                    LottieAnimation(
+                        composition = composition,
+                        progress = { progress },
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    // Profile Image over animation
+                    val profileImg = painterResource(id = R.drawable.profile)
+
+                    Image(
+                        painter = profileImg,
+                        contentDescription = "User Profile",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(100.dp)
+                            .clip(CircleShape)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(80.dp))
+
                 Card(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(24.dp),
                     modifier = Modifier
                         .padding(24.dp)
-                        .fillMaxWidth()
-                        .height(180.dp),
-                    elevation = CardDefaults.cardElevation(8.dp)
+                        .fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFECECEE))
                 ) {
                     Column(
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
                             .padding(24.dp),
-                        verticalArrangement = Arrangement.Center
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(text = "User: $userName", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(
+                            text = "User: $userName",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF222222)
+                        )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Latitude: $latitude", fontSize = 16.sp, color = Color.White)
-                        Text(text = "Longitude: $longitude", fontSize = 16.sp, color = Color.White)
-                    }
-                }
+                        Text(text = "Latitude: $latitude", fontSize = 16.sp, color = Color.Gray)
+                        Text(text = "Longitude: $longitude", fontSize = 16.sp, color = Color.Gray)
 
-                Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                Button(
-                    onClick = {
-                        isTracking = false
-                        saveTrackingState(false)
-                        coroutineScope.launch {
-                            scrollState.animateScrollTo(0)
+                        Button(
+                            onClick = {
+                                isTracking = false
+                                saveTrackingState(false)
+                                coroutineScope.launch {
+                                    scrollState.animateScrollTo(0)
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = backgroundColor),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                        ) {
+                            Text(
+                                text = "Stop Tracking",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .height(56.dp)
-                ) {
-                    Text(text = "Stop Tracking", color = backgroundColor, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
     }
 }
-
 @Preview(showBackground = true)
 @Composable
 fun PreviewWelcomeScreen() {
