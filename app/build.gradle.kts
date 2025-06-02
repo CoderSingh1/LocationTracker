@@ -54,8 +54,10 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.navigation.compose.android)
-    implementation(libs.androidx.navigation.compose.jvmstubs)
+    implementation(libs.play.services.location)
+
+    // Accompanist Permissions
+    implementation(libs.accompanist.permissions)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
