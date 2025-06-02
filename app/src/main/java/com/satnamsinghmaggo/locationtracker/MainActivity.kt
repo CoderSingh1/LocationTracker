@@ -1,6 +1,11 @@
+@file:OptIn(ExperimentalPermissionsApi::class)
+
 package com.satnamsinghmaggo.locationtracker
 
 import android.content.Context
+import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -47,6 +52,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.airbnb.lottie.LottieProperty
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
@@ -59,6 +65,12 @@ import com.airbnb.lottie.model.KeyPath
 import com.satnamsinghmaggo.locationtracker.ui.theme.LocationTrackerTheme
 import kotlinx.coroutines.launch
 import androidx.core.content.edit
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,9 +80,60 @@ class MainActivity : ComponentActivity() {
             LocationTrackerTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     LocationTrackerScrollScreen(Modifier.padding(innerPadding))
+
                 }
             }
         }
+    }
+}
+
+class LocationManager(
+    private val context: Context,
+    private val fusedLocationProviderClient: FusedLocationProviderClient
+){
+    suspend fun getLocation(): Location? {
+        val hasGrantedFineLocationPermission = ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+       val hasGrantedCoarseLocationPermission = ContextCompat.checkSelfPermission(
+           context,
+           android.Manifest.permission.ACCESS_COARSE_LOCATION
+       ) == PackageManager.PERMISSION_GRANTED
+        val locationManager = context.getSystemService(
+            Context.LOCATION_SERVICE
+        ) as LocationManager
+
+        val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ||
+                locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+
+        if(!isGpsEnabled && !(hasGrantedCoarseLocationPermission || hasGrantedFineLocationPermission)){
+            return null
+        }
+        return suspendCancellableCoroutine { cont->
+            fusedLocationProviderClient.lastLocation.apply {
+                if (isComplete){
+                    if(isSuccessful){
+                        cont.resume(result)
+                    }else {
+                        cont.resume(null)
+                    }
+                    return@suspendCancellableCoroutine
+                }
+                addOnSuccessListener {
+                    cont.resume(result)
+                }
+                addOnFailureListener {
+                    cont.resume(null)
+                }
+
+                addOnCanceledListener {
+                    cont.cancel()
+                }
+            }
+        }
+
     }
 }
 
@@ -102,6 +165,24 @@ fun LocationTrackerScrollScreen(modifier: Modifier = Modifier) {
     LaunchedEffect(Unit) {
         if (isTracking) scrollState.animateScrollTo(scrollState.maxValue)
     }
+    val locationManager = remember {
+        LocationManager(
+            context = context,
+            fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(context)
+        )
+    }
+    val locationPermission = rememberMultiplePermissionsState(
+        permissions = listOf(
+            android.Manifest.permission.ACCESS_COARSE_LOCATION,
+            android.Manifest.permission.ACCESS_FINE_LOCATION
+
+        )
+    )
+    var location by remember {
+        mutableStateOf<Location?>(null)
+
+    }
+
 
     Column(
         modifier = modifier
@@ -182,6 +263,14 @@ fun LocationTrackerScrollScreen(modifier: Modifier = Modifier) {
 
                     Button(
                         onClick = {
+                            if (!locationPermission.allPermissionsGranted || locationPermission.shouldShowRationale) {
+                                locationPermission.launchMultiplePermissionRequest()
+                            }else {
+                                coroutineScope.launch {
+                                    location = locationManager.getLocation()
+                                }
+
+                            }
                             isTracking = !isTracking
                             saveTrackingState(isTracking)
                             coroutineScope.launch {
@@ -281,21 +370,20 @@ fun LocationTrackerScrollScreen(modifier: Modifier = Modifier) {
                                     color = Color(0xFF222222)
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Latitude: $latitude",
-                                    fontSize = 16.sp,
-                                    color = Color.Gray
-                                )
-                                Text(
-                                    text = "Longitude: $longitude",
-                                    fontSize = 16.sp,
-                                    color = Color.Gray
-                                )
+                               location?.let {
+                                   Text(
+                                       text = "Coordinates: ${it.latitude}, ${it.longitude}",
+                                       fontSize = 16.sp,
+                                       color = Color(0xFF222222)
+                                   )
+                               }
+                               }
 
                                 Spacer(modifier = Modifier.height(16.dp))
 
                                 Button(
                                     onClick = {
+
                                         isTracking = false
                                         saveTrackingState(false)
                                         coroutineScope.launch {
@@ -319,7 +407,7 @@ fun LocationTrackerScrollScreen(modifier: Modifier = Modifier) {
                     }
                 }
             }
-        }
+
 @Preview(showBackground = true)
 @Composable
 fun PreviewWelcomeScreen() {
