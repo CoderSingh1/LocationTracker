@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -268,8 +269,8 @@ fun LocationTrackerScrollScreen(modifier: Modifier = Modifier) {
                             }else {
                                 coroutineScope.launch {
                                     location = locationManager.getLocation()
+                                    Log.e("Location", location.toString())
                                 }
-
                             }
                             isTracking = !isTracking
                             saveTrackingState(isTracking)
