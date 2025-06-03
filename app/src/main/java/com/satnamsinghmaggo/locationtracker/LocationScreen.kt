@@ -2,7 +2,9 @@
 
 package com.satnamsinghmaggo.locationtracker
 
+import android.app.Activity
 import android.content.Context
+import android.content.IntentSender
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
@@ -18,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -33,11 +34,46 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.android.gms.location.FusedLocationProviderClient
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import android.os.Looper
+import com.google.android.gms.common.api.ResolvableApiException
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.Priority
+import com.google.android.gms.location.*
+
+fun requestEnableGPS(activity: Activity) {
+    val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000)
+        .setWaitForAccurateLocation(false)
+        .build()
+
+    val builder = LocationSettingsRequest.Builder()
+        .addLocationRequest(locationRequest)
+        .setAlwaysShow(true)
+
+    val settingsClient = LocationServices.getSettingsClient(activity)
+    val task = settingsClient.checkLocationSettings(builder.build())
+
+    task.addOnSuccessListener {
+        // GPS is already enabled
+    }
+
+    task.addOnFailureListener { exception ->
+        if (exception is ResolvableApiException) {
+            try {
+                exception.startResolutionForResult(activity, 101) // 101 = request code
+            } catch (sendEx: IntentSender.SendIntentException) {
+                // Handle exception
+            }
+        }
+    }
+}
 
 class LocationManager(
     private val context: Context,
     private val fusedLocationProviderClient: FusedLocationProviderClient
-){
+) {
+
     suspend fun getLocation(): Location? {
         val hasGrantedFineLocationPermission = ContextCompat.checkSelfPermission(
             context,
@@ -48,39 +84,49 @@ class LocationManager(
             context,
             android.Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
-        val locationManager = context.getSystemService(
-            Context.LOCATION_SERVICE
-        ) as android.location.LocationManager
 
-        val isGpsEnabled = locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER) ||
-                locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 
-        if(!isGpsEnabled && !(hasGrantedCoarseLocationPermission || hasGrantedFineLocationPermission)){
+        if (!isGpsEnabled) {
+            if (context is Activity) {
+                requestEnableGPS(context)
+            }
             return null
         }
-        return suspendCancellableCoroutine { cont->
-            fusedLocationProviderClient.lastLocation.apply {
-                if (isComplete){
-                    if(isSuccessful){
-                        cont.resume(result)
-                    }else {
-                        cont.resume(null)
-                    }
-                    return@suspendCancellableCoroutine
-                }
-                addOnSuccessListener {
-                    cont.resume(result)
-                }
-                addOnFailureListener {
-                    cont.resume(null)
-                }
 
-                addOnCanceledListener {
-                    cont.cancel()
+
+        return suspendCancellableCoroutine { cont ->
+            fusedLocationProviderClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null) {
+                    cont.resume(location)
+                } else {
+                    // Request a single update if last location is null
+                    val locationRequest = LocationRequest.Builder(
+                        Priority.PRIORITY_HIGH_ACCURACY, 1000L
+                    ).apply {
+                        setMinUpdateIntervalMillis(500L)
+                        setMaxUpdates(1)
+                    }.build()
+
+                    val locationCallback = object : LocationCallback() {
+                        override fun onLocationResult(result: LocationResult) {
+                            fusedLocationProviderClient.removeLocationUpdates(this)
+                            cont.resume(result.lastLocation)
+                        }
+                    }
+
+                    fusedLocationProviderClient.requestLocationUpdates(
+                        locationRequest,
+                        locationCallback,
+                        Looper.getMainLooper()
+                    )
                 }
+            }.addOnFailureListener {
+                cont.resume(null)
             }
         }
-
     }
 }
 @Composable

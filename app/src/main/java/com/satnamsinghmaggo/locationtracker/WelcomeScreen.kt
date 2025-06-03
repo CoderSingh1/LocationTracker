@@ -62,7 +62,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun WelcomeScreen(
     isTracking: Boolean,
-    onStartTracking: (Location) -> Unit
+    onStartTracking: (Location) -> Unit,
+    onRequestEnableGPS: () -> Unit
 ) {
     val backgroundColor = Color(0xFF4C62E7)
     val context = LocalContext.current
@@ -175,12 +176,19 @@ fun WelcomeScreen(
                     if (!locationPermission.allPermissionsGranted || locationPermission.shouldShowRationale) {
                         locationPermission.launchMultiplePermissionRequest()
                     } else {
-                        coroutineScope.launch {
-                            location = locationManager.getLocation()
-                            location?.let {
-                                Log.d("LOCATION", "Lat: ${it.latitude}, Lon: ${it.longitude}")
-                                onStartTracking(it)
-                            } ?: Log.e("LOCATION", "Location is null")
+                        val locationService = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                        val isGPSEnabled = locationService.isProviderEnabled(LocationManager.GPS_PROVIDER)
+
+                        if (!isGPSEnabled) {
+                            onRequestEnableGPS()
+                        } else {
+                            coroutineScope.launch {
+                                location = locationManager.getLocation()
+                                location?.let {
+                                    Log.d("LOCATION", "Lat: ${it.latitude}, Lon: ${it.longitude}")
+                                    onStartTracking(it)
+                                } ?: Log.e("LOCATION", "Location is null")
+                            }
                         }
                     }
                 },
