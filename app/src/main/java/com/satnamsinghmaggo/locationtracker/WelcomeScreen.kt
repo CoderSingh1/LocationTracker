@@ -199,7 +199,7 @@ fun WelcomeScreen(
                     .height(56.dp)
             ) {
                 Text(
-                    text = if (isTracking) "Stop Tracking" else "Start Tracking",
+                    text = "Start Tracking",
                     color = backgroundColor,
                     fontWeight = FontWeight.Bold
                 )
